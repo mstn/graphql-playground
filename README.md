@@ -47,4 +47,4 @@ Then the following query seems legit to me:
 ```
 
 Indeed, `name` is a property belonging to the intersection of `PersonType` and `PlaceType`. However,
-GraphQL returns an error and requires to use a fragment.
+GraphQL returns an error and requires to use a fragment. Note that, if we use interfaces, we do not get an error.
