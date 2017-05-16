@@ -11,7 +11,7 @@ import {
 } from 'graphql';
 
 const data = [
-  { id: 1, name: 'John', surname: 'Doe' },
+  { id: 1, name: 'John', surname: 'Doe', language: 'java' },
   { id: 2, name: 'a place', address: 'a long address'}
 ];
 
@@ -46,6 +46,17 @@ describe('Query on schema returning an interface', () => {
       return !!value.address;
     }
   });
+  const ProgrammerType = new GraphQLObjectType({
+    name: 'ProgrammerType',
+    interfaces: [ ThingInterface ],
+    fields: {
+      name: { type: new GraphQLNonNull(GraphQLString) },
+      language: { type: GraphQLString }
+    },
+    isTypeOf(value, info){
+      return !!value.language;
+    }
+  });
 
   const rootType = new GraphQLObjectType({
     name: 'Root',
@@ -61,7 +72,7 @@ describe('Query on schema returning an interface', () => {
   });
 
   const schema = new GraphQLSchema({
-    types: [ PersonType, PlaceType],
+    types: [  PersonType, ProgrammerType, PlaceType ],
     query: rootType
   });
 
@@ -105,6 +116,51 @@ describe('Query on schema returning an interface', () => {
     `);
     expect(result.data).to.deep.equal({
       things: { name: 'John' }
+    });
+  });
+
+  it('fetches the first object implementing an interface, others are ignored', async () => {
+    // NB: it does not depend on the order in which inline fragments appear in the query
+    // de facto fragments implement a XOR logic
+    const personSchema = new GraphQLSchema({
+      types: [  PersonType, ProgrammerType, PlaceType ],
+      query: rootType
+    });
+    const programmerSchema = new GraphQLSchema({
+      types: [  ProgrammerType, PersonType, PlaceType ],
+      query: rootType
+    });
+    const personResult = await graphql(personSchema, `
+      {
+        things(entityId: 1) {
+          name
+          ... on PersonType {
+            surname
+          }
+          ... on ProgrammerType {
+            language
+          }
+        }
+      }
+    `);
+    expect(personResult.data).to.deep.equal({
+     things: { name: 'John', surname: 'Doe' }
+    });
+    const programmerResult = await graphql(programmerSchema, `
+      {
+        things(entityId: 1) {
+          name
+          ... on PersonType {
+            surname
+          }
+          ... on ProgrammerType {
+            language
+          }
+        }
+      }
+    `);
+    expect(programmerResult.data).to.deep.equal({
+     things: { name: 'John', language: 'java' }
     });
   });
 });
